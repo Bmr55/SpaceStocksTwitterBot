@@ -131,3 +131,6 @@ dmypy.json
 # keys and token files
 api_keys.json
 tda_token.json
+
+# basic persistence
+last_tweets.json
