@@ -1,4 +1,7 @@
-# space-stocks-twitter-bot
+# Space Stocks Twitter Bot
+
+[Live Twitter Bot](https://twitter.com/SpaceStocksUS)
+
 
 ## Run bot in a virtualenv on Linux
 ```console
