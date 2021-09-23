@@ -24,8 +24,8 @@ class SpaceStocksTwitterBot():
         self.market_close_hour = 16 # 4PM EST
         
     def load_credentials(self, filepath):
-        with open(filepath, 'r') as json_file:
-            return json.loads(json_file.read())
+        with open(filepath, 'r') as fp:
+            return json.loads(fp.read())
 
     def auth(self, credentials):
         auth = tweepy.OAuthHandler(
@@ -96,14 +96,33 @@ class SpaceStocksTwitterBot():
         for reply in replies:
             tweet_id = self.reply_to_tweet(tweet_id, reply)
 
+    def already_tweeted_wrapup(self):
+        latest_tweets = self.load_latest_tweets()
+        if 'market-wrapup-tweet' not in latest_tweets: return False
+        dt_str = latest_tweets['market-wrapup-tweet']['datetime']
+        last_wrapup_dt = datetime.datetime.strptime(dt_str, '%d/%m/%Y %H:%M:%S')
+        now = self.get_est_time()
+        if now.day == last_wrapup_dt.day: return True
+        return False
+
+    def persist_last_wrapup(self, dt):
+        latest_tweets = self.load_latest_tweets()
+        latest_tweets['market-wrapup-tweet'] = { 'datetime': dt.strftime('%d/%m/%Y %H:%M:%S')}
+        with open('latest_tweets.json', 'w+') as json_file:
+            json_file.write(json.dumps(latest_tweets))
+            
+    def load_latest_tweets(self):
+        with open('latest_tweets.json', 'a+') as fp:
+            fp.seek(0)
+            content = fp.read()
+            if content == '': return json.loads('{}')
+            else: return json.loads(content)
+
     def test(self):
         est_time = self.get_est_time()
         quotes = self.tda_client.get_quotes(SYMBOLS).json()
         market_wrapup = self.create_market_wrapup(quotes)
         tweets = self.create_wrapup_tweets(market_wrapup, est_time)
-        for tweet in tweets:
-            print(tweet)
-            print()
         self.send_wrapup_tweets(tweets)
 
     def run(self):
@@ -112,11 +131,12 @@ class SpaceStocksTwitterBot():
             if est_time.hour == self.market_close_hour:
                 dt = est_time.replace(hour=12, minute=0)
                 is_open = tda_api.is_market_open(self.tda_client, dt)
-                if is_open:
+                if is_open and not self.already_tweeted_wrapup():
                     quotes = self.tda_client.get_quotes(SYMBOLS).json()
                     market_wrapup = self.create_market_wrapup(quotes)
                     tweets = self.create_wrapup_tweets(market_wrapup, est_time)
                     self.send_wrapup_tweets(tweets)
+                    self.persist_last_wrapup(est_time)
                     time.sleep(self.after_tweet_timeout)
                 else:
                     time.sleep(self.do_nothing_timeout)
@@ -135,11 +155,8 @@ if __name__ == '__main__':
     args = sys.argv
     if len(args) > 1:
         mode = args[1]
-        if mode.lower() == 'test':
-            test()
-        elif mode.lower() == 'run' or mode.lower() == 'main':
-            main()
-        else:
-            print("Unknown mode '{}'".format(mode))
+        if mode.lower() == 'test': test()
+        elif mode.lower() == 'run' or mode.lower() == 'main': main()
+        else: print("Unknown mode '{}'".format(mode))
     else:
         main()
