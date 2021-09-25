@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 import time
 import tweepy
 import tda_api
@@ -10,6 +11,10 @@ SYMBOLS = [
     'PKE', 'MAXR', 'BA', 'RTX', 'AJRD', 'KTOS', 'NOC',
     'LMT', 'GD', 'OSAT', 'IRDM', 'VSAT', 'GSAT', 'DISH'
 ]
+
+logging.basicConfig(filename='bot.log', level=logging.INFO,
+    format='%(asctime)s:%(levelname)s: %(message)s', datefmt='%m/%d/%Y %H:%M:%S')
+logger = logging.getLogger('main')
 
 class SpaceStocksTwitterBot():
 
@@ -118,8 +123,10 @@ class SpaceStocksTwitterBot():
         top_level_tweet = tweets[0]
         replies = tweets[1:]
         tweet_id = self.send_tweet(top_level_tweet)
+        top_level_tweet_id = tweet_id
         for reply in replies:
             tweet_id = self.reply_to_tweet(tweet_id, reply)
+        return top_level_tweet_id
 
     def already_tweeted_open(self):
         latest_tweets = self.load_latest_tweets()
@@ -173,6 +180,7 @@ class SpaceStocksTwitterBot():
         self.send_tweet_thread(tweets)
 
     def run(self):
+        logging.info('SpaceStocksTwitterBot.run() called')
         while True:
             est_time = self.get_est_time()
             mid_day_dt = est_time.replace(hour=12, minute=0)
@@ -181,7 +189,8 @@ class SpaceStocksTwitterBot():
                     quotes = self.tda_client.get_quotes(SYMBOLS).json()
                     market_open_summary = self.create_market_open_summary(quotes)
                     tweets = self.create_open_tweets(market_open_summary, est_time)
-                    self.send_tweet_thread(tweets)
+                    top_level_tweet_id = self.send_tweet_thread(tweets)
+                    logger.info("Sent market-open tweet with id '{}'".format(top_level_tweet_id))
                     self.persist_last_open(est_time)
                     time.sleep(self.after_tweet_timeout)
             elif est_time.hour == self.market_close_hour:
@@ -189,7 +198,8 @@ class SpaceStocksTwitterBot():
                     quotes = self.tda_client.get_quotes(SYMBOLS).json()
                     market_wrapup = self.create_market_wrapup(quotes)
                     tweets = self.create_wrapup_tweets(market_wrapup, est_time)
-                    self.send_tweet_thread(tweets)
+                    top_level_tweet_id = self.send_tweet_thread(tweets)
+                    logger.info("Sent market-close tweet with id '{}'".format(top_level_tweet_id))
                     self.persist_last_wrapup(est_time)
                     time.sleep(self.after_tweet_timeout)
                 else:
@@ -198,5 +208,6 @@ class SpaceStocksTwitterBot():
                 time.sleep(self.do_nothing_timeout)
 
 if __name__ == '__main__':
+    logger.info('bot.py started')
     bot = SpaceStocksTwitterBot()
     bot.run()
