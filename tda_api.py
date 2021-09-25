@@ -23,7 +23,12 @@ def get_market_hours(client, dt):
 
 def is_market_open(client, dt):
     try:
-        return get_market_hours(client, dt)['equity']['EQ']['isOpen']
+        response = get_market_hours(client, dt)
+        outer_equity_obj = response['equity']
+        if 'EQ' not in outer_equity_obj:
+            inner_equity_obj = outer_equity_obj['equity']
+        else:
+            inner_equity_obj = outer_equity_obj['EQ']
+        return inner_equity_obj['isOpen']
     except Exception as e:
-        print(e)
         return False
