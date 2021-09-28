@@ -137,6 +137,28 @@ class SpaceStocksTwitterBot():
             tweet_id = self.reply_to_tweet(tweet_id, reply)
         return top_level_tweet_id
 
+    def is_market_open(self, dt):
+        persistence_file = self.load_persistence_file()
+        if 'market_status' not in persistence_file:
+            is_market_open = tda_api.is_market_open(self.tda_client, dt)
+            persistence_file['market_status'] = {
+                'is_market_open': is_market_open,
+                'datetime': dt.strftime('%d/%m/%Y %H:%M:%S')}
+            self.save_persistence_file(persistence_file)
+            return is_market_open
+
+        market_status_obj = persistence_file['market_status']
+        last_market_status_dt = datetime.datetime.strptime(market_status_obj['datetime'], '%d/%m/%Y %H:%M:%S')
+        if last_market_status_dt.day == dt.day:
+            return market_status_obj['is_market_open']
+        else:
+            is_market_open = tda_api.is_market_open(self.tda_client, dt)
+            persistence_file['market_status'] = {
+                'is_market_open': is_market_open,
+                'datetime': dt.strftime('%d/%m/%Y %H:%M:%S')}
+            self.save_persistence_file(persistence_file)
+            return is_market_open
+
     def already_tweeted_open(self):
         persistence_file = self.load_persistence_file()
         if 'latest-tweet-updates' not in persistence_file: return False
@@ -204,7 +226,7 @@ class SpaceStocksTwitterBot():
             est_time = self.get_est_time()
             mid_day_dt = est_time.replace(hour=12, minute=0)
             if est_time.hour == self.market_open_hour and est_time.minute >= self.market_open_minute:
-                if not self.already_tweeted_open() and tda_api.is_market_open(self.tda_client, mid_day_dt):
+                if not self.already_tweeted_open() and self.is_market_open(mid_day_dt):
                     quotes = self.tda_client.get_quotes(SYMBOLS).json()
                     market_open_summary = self.create_market_open_summary(quotes)
                     tweets = self.create_open_tweets(market_open_summary, est_time)
@@ -213,7 +235,7 @@ class SpaceStocksTwitterBot():
                     self.persist_last_open(est_time)
                     time.sleep(self.after_tweet_timeout)
             elif est_time.hour == self.market_close_hour:
-                if not self.already_tweeted_wrapup() and tda_api.is_market_open(self.tda_client, mid_day_dt):
+                if not self.already_tweeted_wrapup() and self.is_market_open(mid_day_dt):
                     quotes = self.tda_client.get_quotes(SYMBOLS).json()
                     market_wrapup = self.create_market_wrapup(quotes)
                     tweets = self.create_wrapup_tweets(market_wrapup, est_time)
