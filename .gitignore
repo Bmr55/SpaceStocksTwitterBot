@@ -133,4 +133,4 @@ api_keys.json
 tda_token.json
 
 # basic persistence
-last_tweets.json
+persistence.json
