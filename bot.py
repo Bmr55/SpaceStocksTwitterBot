@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import os
 import time
 import tweepy
 import tda_api
@@ -12,24 +13,32 @@ SYMBOLS = [
     'LMT', 'GD', 'OSAT', 'IRDM', 'VSAT', 'GSAT', 'DISH'
 ]
 
-logging.basicConfig(filename='bot.log', level=logging.INFO,
-    format='%(asctime)s:%(levelname)s: %(message)s', datefmt='%m/%d/%Y %H:%M:%S')
-logger = logging.getLogger('main')
+def setup_logging():
+    scriptpath = os.path.abspath(os.path.dirname(__file__))
+    filepath = os.path.join(scriptpath, 'bot.log')
+    logging.basicConfig(filename=filepath, level=logging.INFO,
+        format='%(asctime)s:%(levelname)s: %(message)s', datefmt='%m/%d/%Y %H:%M:%S')
+    return logging.getLogger('main')
+
+logger = setup_logging()
 
 class SpaceStocksTwitterBot():
 
-    def __init__(self, api_keys_path=None):
-        if api_keys_path: credentials = self.load_credentials(api_keys_path)
+    def __init__(self, api_keys_filename=None):
+        self.scriptpath = os.path.abspath(os.path.dirname(__file__))
+        logger.info('Set scriptpath: {}'.format(self.scriptpath))
+        if api_keys_filename: credentials = self.load_credentials(api_keys_filename)
         else: credentials = self.load_credentials('api_keys.json')
         self.twitter_api = self.get_twitter_api(credentials)
-        self.tda_client = tda_api.get_client(credentials['tda_api_key'])
+        self.tda_client = tda_api.get_client(credentials['tda_api_key'], self.scriptpath)
         self.do_nothing_timeout = 1
         self.after_tweet_timeout = (60 * 60) + 1
         self.market_open_hour = 9
         self.market_open_minute = 45
         self.market_close_hour = 16 # 4PM EST
         
-    def load_credentials(self, filepath):
+    def load_credentials(self, filename):
+        filepath = os.path.join(self.scriptpath, filename)
         with open(filepath, 'r') as fp:
             return json.loads(fp.read())
 
@@ -149,17 +158,21 @@ class SpaceStocksTwitterBot():
     def persist_last_open(self, dt):
         latest_tweets = self.load_latest_tweets()
         latest_tweets['market-open-tweet'] = { 'datetime': dt.strftime('%d/%m/%Y %H:%M:%S')}
-        with open('latest_tweets.json', 'w+') as json_file:
-            json_file.write(json.dumps(latest_tweets))
+        self.save_latest_tweets(latest_tweets)
 
     def persist_last_wrapup(self, dt):
         latest_tweets = self.load_latest_tweets()
         latest_tweets['market-wrapup-tweet'] = { 'datetime': dt.strftime('%d/%m/%Y %H:%M:%S')}
-        with open('latest_tweets.json', 'w+') as json_file:
-            json_file.write(json.dumps(latest_tweets))
-            
+        self.save_latest_tweets(latest_tweets)
+
+    def save_latest_tweets(self, content):
+        filepath = os.path.join(self.scriptpath, 'latest_tweets.json')
+        with open(filepath, 'w+') as json_file:
+            json_file.write(json.dumps(content))
+
     def load_latest_tweets(self):
-        with open('latest_tweets.json', 'a+') as fp:
+        filepath = os.path.join(self.scriptpath, 'latest_tweets.json')
+        with open(filepath, 'a+') as fp:
             fp.seek(0)
             content = fp.read()
             if content == '': return json.loads('{}')

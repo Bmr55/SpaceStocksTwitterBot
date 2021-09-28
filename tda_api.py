@@ -1,21 +1,12 @@
-import atexit
+import os
 from tda.auth import easy_client
 
 REDIRECT_URI = 'https://localhost:8080/'
-TOKEN_PATH = 'tda_token.json'
-API_KEY = ""
+TOKEN_FILE = 'tda_token.json'
 
-def make_webdriver():
-    # Import selenium here because it's slow to import
-    from selenium import webdriver
-    from webdriver_manager.chrome import ChromeDriverManager
-
-    driver = webdriver.Chrome(ChromeDriverManager().install())
-    atexit.register(lambda: driver.quit())
-    return driver
-
-def get_client(api_key):
-    return easy_client(api_key, REDIRECT_URI, TOKEN_PATH, make_webdriver)
+def get_client(api_key, scriptpath):
+    token_path = os.path.join(scriptpath, TOKEN_FILE)
+    return easy_client(api_key=api_key, redirect_uri=REDIRECT_URI, token_path=token_path)
 
 def get_market_hours(client, dt):
     market = client.Markets('EQUITY')
