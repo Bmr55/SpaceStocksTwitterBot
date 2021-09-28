@@ -31,8 +31,7 @@ class SpaceStocksTwitterBot():
         else: credentials = self.load_credentials('api_keys.json')
         self.twitter_api = self.get_twitter_api(credentials)
         self.tda_client = tda_api.get_client(credentials['tda_api_key'], self.scriptpath)
-        self.do_nothing_timeout = 1
-        self.after_tweet_timeout = (60 * 60) + 1
+        self.bot_timeout = 1
         self.market_open_hour = 9
         self.market_open_minute = 45
         self.market_close_hour = 16 # 4PM EST
@@ -233,7 +232,6 @@ class SpaceStocksTwitterBot():
                     top_level_tweet_id = self.send_tweet_thread(tweets)
                     logger.info("Sent market-open tweet with id '{}'".format(top_level_tweet_id))
                     self.persist_last_open(est_time)
-                    time.sleep(self.after_tweet_timeout)
             elif est_time.hour == self.market_close_hour:
                 if not self.already_tweeted_wrapup() and self.is_market_open(mid_day_dt):
                     quotes = self.tda_client.get_quotes(SYMBOLS).json()
@@ -242,11 +240,7 @@ class SpaceStocksTwitterBot():
                     top_level_tweet_id = self.send_tweet_thread(tweets)
                     logger.info("Sent market-close tweet with id '{}'".format(top_level_tweet_id))
                     self.persist_last_wrapup(est_time)
-                    time.sleep(self.after_tweet_timeout)
-                else:
-                    time.sleep(self.do_nothing_timeout)
-            else:
-                time.sleep(self.do_nothing_timeout)
+            time.sleep(self.bot_timeout)
 
 if __name__ == '__main__':
     logger.info('bot.py started')
