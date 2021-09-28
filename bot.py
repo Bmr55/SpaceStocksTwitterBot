@@ -138,40 +138,46 @@ class SpaceStocksTwitterBot():
         return top_level_tweet_id
 
     def already_tweeted_open(self):
-        latest_tweets = self.load_latest_tweets()
-        if 'market-open-tweet' not in latest_tweets: return False
-        dt_str = latest_tweets['market-open-tweet']['datetime']
+        persistence_file = self.load_persistence_file()
+        if 'latest-tweet-updates' not in persistence_file: return False
+        latest_tweet_updates = persistence_file['latest-tweet-updates']
+        if 'market-open-tweet' not in latest_tweet_updates: return False
+        dt_str = latest_tweet_updates['market-open-tweet']['datetime']
         last_open_dt = datetime.datetime.strptime(dt_str, '%d/%m/%Y %H:%M:%S')
         now = self.get_est_time()
         if now.day == last_open_dt.day: return True
         return False
 
     def already_tweeted_wrapup(self):
-        latest_tweets = self.load_latest_tweets()
-        if 'market-wrapup-tweet' not in latest_tweets: return False
-        dt_str = latest_tweets['market-wrapup-tweet']['datetime']
+        persistence_file = self.load_persistence_file()
+        if 'latest-tweet-updates' not in persistence_file: return False
+        latest_tweet_updates = persistence_file['latest-tweet-updates']
+        if 'market-wrapup-tweet' not in latest_tweet_updates: return False
+        dt_str = latest_tweet_updates['market-wrapup-tweet']['datetime']
         last_wrapup_dt = datetime.datetime.strptime(dt_str, '%d/%m/%Y %H:%M:%S')
         now = self.get_est_time()
         if now.day == last_wrapup_dt.day: return True
         return False
 
     def persist_last_open(self, dt):
-        latest_tweets = self.load_latest_tweets()
-        latest_tweets['market-open-tweet'] = { 'datetime': dt.strftime('%d/%m/%Y %H:%M:%S')}
-        self.save_latest_tweets(latest_tweets)
+        persistence_file = self.load_persistence_file()
+        if 'latest-tweet-updates' not in persistence_file: persistence_file['latest-tweet-updates'] = {}
+        persistence_file['latest-tweet-updates']['market-open-tweet'] = { 'datetime': dt.strftime('%d/%m/%Y %H:%M:%S')}
+        self.save_persistence_file(persistence_file)
 
     def persist_last_wrapup(self, dt):
-        latest_tweets = self.load_latest_tweets()
-        latest_tweets['market-wrapup-tweet'] = { 'datetime': dt.strftime('%d/%m/%Y %H:%M:%S')}
-        self.save_latest_tweets(latest_tweets)
+        persistence_file = self.load_persistence_file()
+        if 'latest-tweet-updates' not in persistence_file: persistence_file['latest-tweet-updates'] = {}
+        persistence_file['latest-tweet-updates']['market-wrapup-tweet'] = { 'datetime': dt.strftime('%d/%m/%Y %H:%M:%S')}
+        self.save_persistence_file(persistence_file)
 
-    def save_latest_tweets(self, content):
-        filepath = os.path.join(self.scriptpath, 'latest_tweets.json')
+    def save_persistence_file(self, content):
+        filepath = os.path.join(self.scriptpath, 'persistence.json')
         with open(filepath, 'w+') as json_file:
             json_file.write(json.dumps(content))
 
-    def load_latest_tweets(self):
-        filepath = os.path.join(self.scriptpath, 'latest_tweets.json')
+    def load_persistence_file(self):
+        filepath = os.path.join(self.scriptpath, 'persistence.json')
         with open(filepath, 'a+') as fp:
             fp.seek(0)
             content = fp.read()
