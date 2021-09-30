@@ -1,5 +1,4 @@
 # Space Stocks Twitter Bot
-
 A twitter bot designed to provide market open, market close, and mover price updates for space sector stocks. 
 
 [Live Twitter Bot](https://twitter.com/SpaceStocksUS)
