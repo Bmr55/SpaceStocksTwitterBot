@@ -31,11 +31,11 @@ class SpaceStocksTwitterBot():
         else: credentials = self.load_credentials('api_keys.json')
         self.twitter_api = self.get_twitter_api(credentials)
         self.tda_client = tda_api.get_client(credentials['tda_api_key'], self.scriptpath)
-        self.do_nothing_timeout = 1
-        self.after_tweet_timeout = (60 * 60) + 1
+        self.bot_timeout = 15
         self.market_open_hour = 9
         self.market_open_minute = 45
         self.market_close_hour = 16 # 4PM EST
+        self.market_close_minute = 0
         
     def load_credentials(self, filename):
         filepath = os.path.join(self.scriptpath, filename)
@@ -63,6 +63,28 @@ class SpaceStocksTwitterBot():
     def reply_to_tweet(self, tweet_id, text):
         return self.twitter_api.update_status(status=text, in_reply_to_status_id=tweet_id, 
             auto_populate_reply_metadata=True)._json['id']
+
+    def send_tweet_thread(self, tweets):
+        top_level_tweet = tweets[0]
+        replies = tweets[1:]
+        tweet_id = self.send_tweet(top_level_tweet)
+        top_level_tweet_id = tweet_id
+        for reply in replies:
+            tweet_id = self.reply_to_tweet(tweet_id, reply)
+        return top_level_tweet_id
+
+    def tweet_movers(self, movers):
+        for mover in movers:
+            symbol = mover['symbol']
+            price = round(mover['regularMarketLastPrice'], 2)
+            pct_change = round(mover['regularMarketPercentChangeInDouble'], 2)
+            if pct_change > 0:
+                tweet = 'PRICE CHANGE ALERT: ${} +${:.2f} ({:.2f}%)'.format(symbol, price, pct_change)
+            else:
+                tweet = 'PRICE CHANGE ALERT: ${} ${:.2f} ({:.2f}%)'.format(symbol, price, pct_change)
+            tweet_id = self.send_tweet(tweet)
+            logger.info("Sent mover tweet for symbol '{}' with id '{}'".format(symbol, tweet_id))
+            time.sleep(1)
 
     def create_market_open_summary(self, quotes):
         summary = []
@@ -128,15 +150,6 @@ class SpaceStocksTwitterBot():
         if len(current_str) > 0: wrapup_tweets.append(current_str[:-1])
         return wrapup_tweets
 
-    def send_tweet_thread(self, tweets):
-        top_level_tweet = tweets[0]
-        replies = tweets[1:]
-        tweet_id = self.send_tweet(top_level_tweet)
-        top_level_tweet_id = tweet_id
-        for reply in replies:
-            tweet_id = self.reply_to_tweet(tweet_id, reply)
-        return top_level_tweet_id
-
     def is_market_open(self, dt):
         persistence_file = self.load_persistence_file()
         if 'market_status' not in persistence_file:
@@ -158,6 +171,38 @@ class SpaceStocksTwitterBot():
                 'datetime': dt.strftime('%d/%m/%Y %H:%M:%S')}
             self.save_persistence_file(persistence_file)
             return is_market_open
+
+    def get_movers(self, quotes):
+        movers = []
+        symbols = quotes.keys()
+        for symbol in symbols:
+            quote = quotes[symbol]
+            pct_change = quote['regularMarketPercentChangeInDouble']
+            if pct_change >= 5.0 or pct_change <= -5.0:
+                movers.append(quote)
+        return movers
+
+    def filter_movers(self, movers, now):
+        filtered_movers = []
+        persistence_file = self.load_persistence_file()
+        if 'movers' not in persistence_file:
+            persistence_file['movers'] = {}
+            filtered_movers = movers
+        else:
+            movers_cooldown = persistence_file['movers']
+            for quote in movers:
+                symbol = quote['symbol']
+                if symbol not in movers_cooldown:
+                    filtered_movers.append(quote)
+                else:
+                    dt_str = movers_cooldown[symbol]['datetime']
+                    dt = datetime.datetime.strptime(dt_str, '%d/%m/%Y %H:%M:%S')
+                    if dt.day != now.day: filtered_movers.append(quote)
+        for filtered_quote in filtered_movers:
+            symbol = filtered_quote['symbol']
+            movers_cooldown[symbol] = {'datetime': now.strftime('%d/%m/%Y %H:%M:%S')}
+        self.save_persistence_file(persistence_file)
+        return filtered_movers
 
     def already_tweeted_open(self):
         persistence_file = self.load_persistence_file()
@@ -196,7 +241,7 @@ class SpaceStocksTwitterBot():
     def save_persistence_file(self, content):
         filepath = os.path.join(self.scriptpath, 'persistence.json')
         with open(filepath, 'w+') as json_file:
-            json_file.write(json.dumps(content))
+            json_file.write(json.dumps(content, indent=2))
 
     def load_persistence_file(self):
         filepath = os.path.join(self.scriptpath, 'persistence.json')
@@ -233,7 +278,6 @@ class SpaceStocksTwitterBot():
                     top_level_tweet_id = self.send_tweet_thread(tweets)
                     logger.info("Sent market-open tweet with id '{}'".format(top_level_tweet_id))
                     self.persist_last_open(est_time)
-                    time.sleep(self.after_tweet_timeout)
             elif est_time.hour == self.market_close_hour:
                 if not self.already_tweeted_wrapup() and self.is_market_open(mid_day_dt):
                     quotes = self.tda_client.get_quotes(SYMBOLS).json()
@@ -242,11 +286,19 @@ class SpaceStocksTwitterBot():
                     top_level_tweet_id = self.send_tweet_thread(tweets)
                     logger.info("Sent market-close tweet with id '{}'".format(top_level_tweet_id))
                     self.persist_last_wrapup(est_time)
-                    time.sleep(self.after_tweet_timeout)
-                else:
-                    time.sleep(self.do_nothing_timeout)
-            else:
-                time.sleep(self.do_nothing_timeout)
+
+            market_open = est_time.replace(hour=self.market_open_hour, minute=self.market_open_minute)
+            market_close = est_time.replace(hour=self.market_close_hour, minute=self.market_close_minute)
+            if self.is_market_open(mid_day_dt) and (est_time >= market_open and est_time < market_close):
+                resp = self.tda_client.get_quotes(SYMBOLS)
+                status_code = resp.status_code
+                if status_code != 200:
+                    print(status_code)
+                quotes = resp.json()
+                movers = self.get_movers(quotes)
+                filtered_movers = self.filter_movers(movers, est_time)
+                self.tweet_movers(filtered_movers)
+            time.sleep(self.bot_timeout)
 
 if __name__ == '__main__':
     logger.info('bot.py started')
