@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import time
+import sys
 import tweepy
 import tda_api
 from pytz import timezone
@@ -21,6 +22,18 @@ def setup_logging():
     return logging.getLogger('main')
 
 logger = setup_logging()
+
+def main():
+    bot = SpaceStocksTwitterBot()
+    bot.run()
+    
+def tweet_market_open():
+    bot = SpaceStocksTwitterBot()
+    bot.tweet_market_open()
+
+def tweet_market_close():
+    bot = SpaceStocksTwitterBot()
+    bot.tweet_market_wrapup()
 
 class SpaceStocksTwitterBot():
 
@@ -205,19 +218,21 @@ class SpaceStocksTwitterBot():
             if content == '': return json.loads('{}')
             else: return json.loads(content)
 
-    def test_market_open(self):
+    def tweet_market_open(self):
         est_time = self.get_est_time()
         quotes = self.tda_client.get_quotes(SYMBOLS).json()
         market_open_summary = self.create_market_open_summary(quotes)
         tweets = self.create_open_tweets(market_open_summary, est_time)
-        self.send_tweet_thread(tweets)
+        top_level_tweet_id = self.send_tweet_thread(tweets)
+        logger.info("Sent market-open tweet with id '{}'".format(top_level_tweet_id))
 
-    def test_market_wrapup(self):
+    def tweet_market_wrapup(self):
         est_time = self.get_est_time()
         quotes = self.tda_client.get_quotes(SYMBOLS).json()
         market_wrapup = self.create_market_wrapup(quotes)
         tweets = self.create_wrapup_tweets(market_wrapup, est_time)
-        self.send_tweet_thread(tweets)
+        top_level_tweet_id = self.send_tweet_thread(tweets)
+        logger.info("Sent market-open tweet with id '{}'".format(top_level_tweet_id))
 
     def run(self):
         logging.info('SpaceStocksTwitterBot.run() called')
@@ -244,5 +259,16 @@ class SpaceStocksTwitterBot():
 
 if __name__ == '__main__':
     logger.info('bot.py started')
-    bot = SpaceStocksTwitterBot()
-    bot.run()
+    args = sys.argv[1:]
+    if len(args) > 0:
+        mode = args[0].lower()
+        if mode == 'main':
+            main()
+        elif mode == 'open':
+            tweet_market_open()
+        elif mode == 'close':
+            tweet_market_close()
+        else:
+            print("'{}' is an unknown argument".format(mode))
+    else:
+        main()
