@@ -9,8 +9,8 @@ import tda_api
 from pytz import timezone
 
 SYMBOLS = [
-    'RKLB', 'ASTR', 'SPCE', 'MNTS', 'RDW', 'ASTS', 'BKSY',
-    'PKE', 'MAXR', 'BA', 'RTX', 'AJRD', 'KTOS', 'NOC',
+    'RKLB', 'ASTR', 'SPCE', 'MNTS', 'RDW', 'ASTS', 'BKSY', 'SPIR',
+    'DMYQ', 'PKE', 'MAXR', 'BA', 'RTX', 'AJRD', 'ATRO', 'KTOS', 'NOC',
     'LMT', 'GD', 'OSAT', 'IRDM', 'VSAT', 'GSAT', 'DISH'
 ]
 
