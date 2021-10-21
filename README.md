@@ -15,3 +15,16 @@ source bot-venv/bin/activate
 pip3 install -r requirements.txt
 python3 bot.py
 ```
+
+## Run bot's main run loop via crontab
+```console
+@reboot /path/to/dir/venv/bin/python3 /path/to/dir/bot.py main &
+```
+
+## Run bot in parts via crontab
+```console
+CRON_TZ=America/New_York
+45 9 * * * TZ=America/New_York /path/to/dir/venv/bin/python3 /path/to/dir/bot.py open
+0 16 * * * TZ=America/New_York /path/to/dir/venv/bin/python3 /path/to/dir/bot.py close
+```
+NOTE: Setting timezones in crontab may not be supported by your OS and instead will require setting the system timezone.
