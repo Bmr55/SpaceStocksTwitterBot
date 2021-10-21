@@ -230,10 +230,10 @@ class SpaceStocksTwitterBot():
         market_wrapup = self.create_market_wrapup(quotes)
         tweets = self.create_wrapup_tweets(market_wrapup, est_time)
         top_level_tweet_id = self.send_tweet_thread(tweets)
-        self.logger.info("Sent market-open tweet with id '{}'".format(top_level_tweet_id))
+        self.logger.info("Sent market-close tweet with id '{}'".format(top_level_tweet_id))
 
     def run(self):
-        logging.info('SpaceStocksTwitterBot.run() called')
+        self.logger.info('SpaceStocksTwitterBot.run() called')
         while True:
             est_time = self.get_est_time()
             mid_day_dt = est_time.replace(hour=12, minute=0)
