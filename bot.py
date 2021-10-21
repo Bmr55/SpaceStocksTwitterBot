@@ -14,19 +14,10 @@ SYMBOLS = [
     'LMT', 'GD', 'OSAT', 'IRDM', 'VSAT', 'GSAT', 'DISH'
 ]
 
-def setup_logging():
-    scriptpath = os.path.abspath(os.path.dirname(__file__))
-    filepath = os.path.join(scriptpath, 'bot.log')
-    logging.basicConfig(filename=filepath, level=logging.INFO,
-        format='%(asctime)s:%(levelname)s: %(message)s', datefmt='%m/%d/%Y %H:%M:%S')
-    return logging.getLogger('main')
-
-logger = setup_logging()
-
 def main():
     bot = SpaceStocksTwitterBot()
     bot.run()
-    
+
 def tweet_market_open():
     bot = SpaceStocksTwitterBot()
     bot.tweet_market_open()
@@ -39,16 +30,23 @@ class SpaceStocksTwitterBot():
 
     def __init__(self, api_keys_filename=None):
         self.scriptpath = os.path.abspath(os.path.dirname(__file__))
-        logger.info('Set scriptpath: {}'.format(self.scriptpath))
         if api_keys_filename: credentials = self.load_credentials(api_keys_filename)
         else: credentials = self.load_credentials('api_keys.json')
+        self.logger = self.setup_logging()
+        self.logger.info('Set scriptpath: {}'.format(self.scriptpath))
         self.twitter_api = self.get_twitter_api(credentials)
         self.tda_client = tda_api.get_client(credentials['tda_api_key'], self.scriptpath)
         self.bot_timeout = 1
         self.market_open_hour = 9
         self.market_open_minute = 45
         self.market_close_hour = 16 # 4PM EST
-        
+
+    def setup_logging(self):
+        filepath = os.path.join(self.scriptpath, 'bot.log')
+        logging.basicConfig(filename=filepath, level=logging.INFO,
+            format='%(asctime)s:%(levelname)s: %(message)s', datefmt='%m/%d/%Y %H:%M:%S')
+        return logging.getLogger('main')
+
     def load_credentials(self, filename):
         filepath = os.path.join(self.scriptpath, filename)
         with open(filepath, 'r') as fp:
@@ -224,7 +222,7 @@ class SpaceStocksTwitterBot():
         market_open_summary = self.create_market_open_summary(quotes)
         tweets = self.create_open_tweets(market_open_summary, est_time)
         top_level_tweet_id = self.send_tweet_thread(tweets)
-        logger.info("Sent market-open tweet with id '{}'".format(top_level_tweet_id))
+        self.logger.info("Sent market-open tweet with id '{}'".format(top_level_tweet_id))
 
     def tweet_market_wrapup(self):
         est_time = self.get_est_time()
@@ -232,7 +230,7 @@ class SpaceStocksTwitterBot():
         market_wrapup = self.create_market_wrapup(quotes)
         tweets = self.create_wrapup_tweets(market_wrapup, est_time)
         top_level_tweet_id = self.send_tweet_thread(tweets)
-        logger.info("Sent market-open tweet with id '{}'".format(top_level_tweet_id))
+        self.logger.info("Sent market-open tweet with id '{}'".format(top_level_tweet_id))
 
     def run(self):
         logging.info('SpaceStocksTwitterBot.run() called')
@@ -245,7 +243,7 @@ class SpaceStocksTwitterBot():
                     market_open_summary = self.create_market_open_summary(quotes)
                     tweets = self.create_open_tweets(market_open_summary, est_time)
                     top_level_tweet_id = self.send_tweet_thread(tweets)
-                    logger.info("Sent market-open tweet with id '{}'".format(top_level_tweet_id))
+                    self.logger.info("Sent market-open tweet with id '{}'".format(top_level_tweet_id))
                     self.persist_last_open(est_time)
             elif est_time.hour == self.market_close_hour:
                 if not self.already_tweeted_wrapup() and self.is_market_open(mid_day_dt):
@@ -253,12 +251,11 @@ class SpaceStocksTwitterBot():
                     market_wrapup = self.create_market_wrapup(quotes)
                     tweets = self.create_wrapup_tweets(market_wrapup, est_time)
                     top_level_tweet_id = self.send_tweet_thread(tweets)
-                    logger.info("Sent market-close tweet with id '{}'".format(top_level_tweet_id))
+                    self.logger.info("Sent market-close tweet with id '{}'".format(top_level_tweet_id))
                     self.persist_last_wrapup(est_time)
             time.sleep(self.bot_timeout)
 
 if __name__ == '__main__':
-    logger.info('bot.py started')
     args = sys.argv[1:]
     if len(args) > 0:
         mode = args[0].lower()
