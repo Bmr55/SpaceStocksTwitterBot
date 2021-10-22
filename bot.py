@@ -40,6 +40,8 @@ class SpaceStocksTwitterBot():
         self.market_open_hour = 9
         self.market_open_minute = 45
         self.market_close_hour = 16 # 4PM EST
+        self.open_tweet_max_len = 180
+        self.close_tweet_max_len = 200
 
     def setup_logging(self):
         filepath = os.path.join(self.scriptpath, 'bot.log')
@@ -113,7 +115,7 @@ class SpaceStocksTwitterBot():
         current_str = '{}/{} MARKET-OPEN UPDATE\n\n'.format(dt.month, dt.day)
         for symbol_summary in summary:
             line = '${} ${:.2f}\n'.format(symbol_summary['symbol'], symbol_summary['open'])
-            if (len(current_str) + len(line)) >= 180:
+            if (len(current_str) + len(line)) >= self.open_tweet_max_len:
                 summary_tweets.append(current_str[:-1])
                 current_str = '' + line
             else:
@@ -130,7 +132,7 @@ class SpaceStocksTwitterBot():
             else:
                 line = '${} ${:.2f} ({:.2f}%)\n'.format(summary['symbol'], summary['close'], summary['pct_change'])
 
-            if (len(current_str) + len(line)) >= 280:
+            if (len(current_str) + len(line)) >= self.close_tweet_max_len:
                 wrapup_tweets.append(current_str[:-1])
                 current_str = '' + line
             else:
