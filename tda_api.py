@@ -10,16 +10,18 @@ def get_client(api_key, scriptpath):
 
 def get_market_hours(client, dt):
     market = client.Markets('EQUITY')
-    return client.get_hours_for_single_market(market, dt).json()
+    response = client.get_hours_for_single_market(market, dt)
+    return response.json() # 'json.decoder.JSONDecodeError: Extra data' sometimes arises here
 
 def is_market_open(client, dt):
+    response = get_market_hours(client, dt)
     try:
-        response = get_market_hours(client, dt)
         outer_equity_obj = response['equity']
         if 'EQ' not in outer_equity_obj:
             inner_equity_obj = outer_equity_obj['equity']
         else:
             inner_equity_obj = outer_equity_obj['EQ']
         return inner_equity_obj['isOpen']
-    except Exception as e:
+    except ValueError as e:
+        print(e)
         return False
