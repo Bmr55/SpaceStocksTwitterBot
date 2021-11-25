@@ -4,6 +4,7 @@ import logging
 import os
 import time
 import sys
+import httpx
 import tweepy
 import tda_api
 from pytz import timezone
@@ -19,12 +20,44 @@ def main():
     bot.run()
 
 def tweet_market_open():
+    attempts = 0
     bot = SpaceStocksTwitterBot()
-    bot.tweet_market_open()
+    while True:
+        try:
+            bot.tweet_market_open()
+            attempts += 1
+            break
+        except httpx.HTTPError as e:
+            print('Caught httpx.HTTPError: {}: trying again...'.format(e))
+            attempts += 1
+            time.sleep(1)
+            continue
+        except json.decoder.JSONDecodeError as e:
+            print('Caught json.decoder.JSONDecodeError: {}: trying again...'.format(e))
+            attempts += 1
+            time.sleep(1)
+            continue
+    print('tweet_market_open attempts: {}'.format(attempts))
 
 def tweet_market_close():
+    attempts = 0
     bot = SpaceStocksTwitterBot()
-    bot.tweet_market_wrapup()
+    while True:
+        try:
+            bot.tweet_market_wrapup()
+            attempts += 1
+            break
+        except httpx.HTTPError as e:
+            print('Caught httpx.HTTPError: {}: trying again...'.format(e))
+            attempts += 1
+            time.sleep(1)
+            continue
+        except json.decoder.JSONDecodeError as e:
+            print('Caught json.decoder.JSONDecodeError: {}: trying again...'.format(e))
+            attempts += 1
+            time.sleep(1)
+            continue
+    print('tweet_market_close attempts: {}'.format(attempts))
 
 class SpaceStocksTwitterBot():
 
