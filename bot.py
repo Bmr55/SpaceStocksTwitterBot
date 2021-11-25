@@ -221,22 +221,28 @@ class SpaceStocksTwitterBot():
     def tweet_market_open(self):
         est_time = self.get_est_time()
         mid_day_dt = est_time.replace(hour=12, minute=0)
-        if tda_api.is_market_open(self.tda_client, mid_day_dt):
+        market_open = tda_api.is_market_open(self.tda_client, mid_day_dt)
+        self.logger.info("tweet_market_open called, market open: '{}'".format(market_open))
+        if market_open:
             quotes = self.tda_client.get_quotes(SYMBOLS).json()
             market_open_summary = self.create_market_open_summary(quotes)
             tweets = self.create_open_tweets(market_open_summary, est_time)
             top_level_tweet_id = self.send_tweet_thread(tweets)
             self.logger.info("Sent market-open tweet with id '{}'".format(top_level_tweet_id))
 
+
     def tweet_market_wrapup(self):
         est_time = self.get_est_time()
         mid_day_dt = est_time.replace(hour=12, minute=0)
-        if tda_api.is_market_open(self.tda_client, mid_day_dt):
+        market_open = tda_api.is_market_open(self.tda_client, mid_day_dt)
+        self.logger.info("tweet_market_wrapup called, market open: '{}'".format(market_open))
+        if market_open:
             quotes = self.tda_client.get_quotes(SYMBOLS).json()
             market_wrapup = self.create_market_wrapup(quotes)
             tweets = self.create_wrapup_tweets(market_wrapup, est_time)
             top_level_tweet_id = self.send_tweet_thread(tweets)
             self.logger.info("Sent market-close tweet with id '{}'".format(top_level_tweet_id))
+
 
     def run(self):
         self.logger.info('SpaceStocksTwitterBot.run() called')
