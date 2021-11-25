@@ -128,6 +128,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+test.py
+
 # keys and token files
 api_keys.json
 tda_token.json
