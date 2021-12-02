@@ -9,12 +9,6 @@ import tweepy
 import tda_api
 from pytz import timezone
 
-SYMBOLS = [
-    'RKLB', 'ASTR', 'SPCE', 'MNTS', 'RDW', 'ASTS', 'BKSY', 'SPIR',
-    'DMYQ', 'PKE', 'MAXR', 'BA', 'RTX', 'AJRD', 'ATRO', 'KTOS', 'NOC',
-    'LMT', 'GD', 'OSAT', 'IRDM', 'VSAT', 'GSAT', 'DISH'
-]
-
 def main():
     bot = SpaceStocksTwitterBot()
     bot.run()
@@ -73,8 +67,11 @@ class SpaceStocksTwitterBot():
         self.market_open_hour = 9
         self.market_open_minute = 45
         self.market_close_hour = 16 # 4PM EST
-        self.open_tweet_max_len = 180
-        self.close_tweet_max_len = 200
+        self.symbols = [
+            ['RKLB', 'ASTR', 'SPCE', 'MNTS', 'NGCA', 'AJRD', 'BA', 'LMT', 'NOC', 'TWNT'],
+            ['RDW', 'BKSY', 'MAXR', 'DMYQ', 'GD', 'PKE', 'RTX', 'ATRO', 'KTOS', 'MYNA'],
+            ['ASTS', 'CFV', 'SPIR', 'DISH', 'IRDM', 'GSAT', 'OSAT', 'TSAT', 'VSAT']
+        ]
 
     def setup_logging(self):
         filepath = os.path.join(self.scriptpath, 'bot.log')
@@ -109,69 +106,40 @@ class SpaceStocksTwitterBot():
         return self.twitter_api.update_status(status=text, in_reply_to_status_id=tweet_id, 
             auto_populate_reply_metadata=True)._json['id']
 
-    def create_market_open_summary(self, quotes):
-        summary = []
-        symbols = quotes.keys()
-        for key in symbols:
-            quote = quotes[key]
-            summary.append({
-                'symbol': key,
-                'open': quote['openPrice']
-            })
-        return summary
+    def create_open_tweets(self, quotes, dt):
+        thread_tweets = []
+        current_tweet = '{}/{} MARKET-OPEN UPDATE\n\n'.format(dt.month, dt.day)
+        all_symbols = self.get_symbols()
+        symbols_obj = [all_symbols[:len(all_symbols)//2], all_symbols[len(all_symbols)//2:]]
+        for symbol_list in symbols_obj:
+            symbol_list.sort()
+            for symbol in symbol_list:
+                quote = quotes[symbol]
+                line = '${} ${:.2f}\n'.format(symbol, quote['openPrice'])
+                current_tweet = current_tweet + line
+            thread_tweets.append(current_tweet[:-1])
+            current_tweet = ''
+        return thread_tweets
 
-    '''
-        'regularMarketLastPrice' - close
-        'closePrice' - previous close
-        change = (regularMarketLastPrice - closePrice) / regularMarketLastPrice
-    '''
-    def create_market_wrapup(self, quotes):
-        wrapup = []
-        symbols = quotes.keys()
-        for key in symbols:
-            quote = quotes[key]
-            close = quote['regularMarketLastPrice']
-            prev_close = quote['closePrice']
-            change = (close - prev_close) / close
-            pct_change = round(change * 100, 2)
-            wrapup.append({
-                'symbol': key,
-                'close': close,
-                'prev_close': prev_close,
-                'change': change,
-                'pct_change': pct_change
-            })
-        return wrapup
-
-    def create_open_tweets(self, summary, dt):
-        summary_tweets = []
-        current_str = '{}/{} MARKET-OPEN UPDATE\n\n'.format(dt.month, dt.day)
-        for symbol_summary in summary:
-            line = '${} ${:.2f}\n'.format(symbol_summary['symbol'], symbol_summary['open'])
-            if (len(current_str) + len(line)) >= self.open_tweet_max_len:
-                summary_tweets.append(current_str[:-1])
-                current_str = '' + line
-            else:
-                current_str = current_str + line
-        if len(current_str) > 0: summary_tweets.append(current_str[:-1])
-        return summary_tweets
-
-    def create_wrapup_tweets(self, wrapup, dt):
-        wrapup_tweets = []
-        current_str = '{}/{} MARKET-CLOSE UPDATE\n\n'.format(dt.month, dt.day)
-        for summary in wrapup:
-            if summary['pct_change'] > 0:
-                line = '${} ${:.2f} (+{:.2f}%)\n'.format(summary['symbol'], summary['close'], summary['pct_change'])
-            else:
-                line = '${} ${:.2f} ({:.2f}%)\n'.format(summary['symbol'], summary['close'], summary['pct_change'])
-
-            if (len(current_str) + len(line)) >= self.close_tweet_max_len:
-                wrapup_tweets.append(current_str[:-1])
-                current_str = '' + line
-            else:
-                current_str = current_str + line
-        if len(current_str) > 0: wrapup_tweets.append(current_str[:-1])
-        return wrapup_tweets
+    def create_wrapup_tweets(self, quotes, dt):
+        thread_tweets = []
+        current_tweet = '{}/{} MARKET-CLOSE UPDATE\n\n'.format(dt.month, dt.day)
+        for symbol_group in self.symbols:
+            symbol_group.sort()
+            for symbol in symbol_group:
+                quote = quotes[symbol]
+                close = quote['regularMarketLastPrice']
+                prev_close = quote['closePrice']
+                change = (close - prev_close) / close
+                pct_change = round(change * 100, 2)
+                if pct_change > 0:
+                    line = '${} ${:.2f} (+{:.2f}%)\n'.format(symbol, close, pct_change)
+                else:
+                    line = '${} ${:.2f} ({:.2f}%)\n'.format(symbol, close, pct_change)
+                current_tweet = current_tweet + line
+            thread_tweets.append(current_tweet[:-1])
+            current_tweet = ''
+        return thread_tweets
 
     def send_tweet_thread(self, tweets):
         top_level_tweet = tweets[0]
@@ -203,6 +171,15 @@ class SpaceStocksTwitterBot():
                 'datetime': dt.strftime('%d/%m/%Y %H:%M:%S')}
             self.save_persistence_file(persistence_file)
             return is_market_open
+
+    def get_symbols(self):
+        symbols = []
+        for symbol_group in self.symbols: symbols = symbols + symbol_group
+        return symbols
+
+    def get_quotes(self):
+        symbols = self.get_symbols()
+        return self.tda_client.get_quotes(symbols).json()
 
     def already_tweeted_open(self):
         persistence_file = self.load_persistence_file()
@@ -257,12 +234,9 @@ class SpaceStocksTwitterBot():
         market_open = tda_api.is_market_open(self.tda_client, mid_day_dt)
         self.logger.info("tweet_market_open called, market open: '{}'".format(market_open))
         if market_open:
-            quotes = self.tda_client.get_quotes(SYMBOLS).json()
-            market_open_summary = self.create_market_open_summary(quotes)
-            tweets = self.create_open_tweets(market_open_summary, est_time)
+            tweets = self.create_open_tweets(self.get_quotes(), est_time)
             top_level_tweet_id = self.send_tweet_thread(tweets)
             self.logger.info("Sent market-open tweet with id '{}'".format(top_level_tweet_id))
-
 
     def tweet_market_wrapup(self):
         est_time = self.get_est_time()
@@ -270,9 +244,7 @@ class SpaceStocksTwitterBot():
         market_open = tda_api.is_market_open(self.tda_client, mid_day_dt)
         self.logger.info("tweet_market_wrapup called, market open: '{}'".format(market_open))
         if market_open:
-            quotes = self.tda_client.get_quotes(SYMBOLS).json()
-            market_wrapup = self.create_market_wrapup(quotes)
-            tweets = self.create_wrapup_tweets(market_wrapup, est_time)
+            tweets = self.create_wrapup_tweets(self.get_quotes(), est_time)
             top_level_tweet_id = self.send_tweet_thread(tweets)
             self.logger.info("Sent market-close tweet with id '{}'".format(top_level_tweet_id))
 
@@ -284,17 +256,13 @@ class SpaceStocksTwitterBot():
             mid_day_dt = est_time.replace(hour=12, minute=0)
             if est_time.hour == self.market_open_hour and est_time.minute >= self.market_open_minute:
                 if not self.already_tweeted_open() and self.is_market_open(mid_day_dt):
-                    quotes = self.tda_client.get_quotes(SYMBOLS).json()
-                    market_open_summary = self.create_market_open_summary(quotes)
-                    tweets = self.create_open_tweets(market_open_summary, est_time)
+                    tweets = self.create_open_tweets(self.get_quotes(), est_time)
                     top_level_tweet_id = self.send_tweet_thread(tweets)
                     self.logger.info("Sent market-open tweet with id '{}'".format(top_level_tweet_id))
                     self.persist_last_open(est_time)
             elif est_time.hour == self.market_close_hour:
                 if not self.already_tweeted_wrapup() and self.is_market_open(mid_day_dt):
-                    quotes = self.tda_client.get_quotes(SYMBOLS).json()
-                    market_wrapup = self.create_market_wrapup(quotes)
-                    tweets = self.create_wrapup_tweets(market_wrapup, est_time)
+                    tweets = self.create_wrapup_tweets(self.get_quotes(), est_time)
                     top_level_tweet_id = self.send_tweet_thread(tweets)
                     self.logger.info("Sent market-close tweet with id '{}'".format(top_level_tweet_id))
                     self.persist_last_wrapup(est_time)
