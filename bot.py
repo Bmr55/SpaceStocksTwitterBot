@@ -115,6 +115,8 @@ class SpaceStocksTwitterBot():
             symbol_list.sort()
             for symbol in symbol_list:
                 quote = quotes[symbol]
+                if quote['openPrice'] == 0.0:
+                    continue
                 line = '${} ${:.2f}\n'.format(symbol, quote['openPrice'])
                 current_tweet = current_tweet + line
             thread_tweets.append(current_tweet[:-1])
