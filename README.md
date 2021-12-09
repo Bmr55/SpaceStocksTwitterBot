@@ -26,5 +26,6 @@ python3 bot.py
 CRON_TZ=America/New_York
 45 9 * * 1-5 TZ=America/New_York /path/to/dir/venv/bin/python3 /path/to/dir/bot.py open
 0 16 * * 1-5 TZ=America/New_York /path/to/dir/venv/bin/python3 /path/to/dir/bot.py close
+0 20 * * 5 TZ=America/New_York /path/to/dir/venv/bin/python3 /path/to/dir/bot.py marketcaps
 ```
 NOTE: Setting timezones in crontab may not be supported by your OS and instead will require setting the system timezone.

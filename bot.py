@@ -53,6 +53,26 @@ def tweet_market_close():
             continue
     print('tweet_market_close attempts: {}'.format(attempts))
 
+def tweet_marketcaps():
+    attempts = 0
+    bot = SpaceStocksTwitterBot()
+    while True:
+        try:
+            bot.tweet_marketcaps()
+            attempts += 1
+            break
+        except httpx.HTTPError as e:
+            print('Caught httpx.HTTPError: {}: trying again...'.format(e))
+            attempts += 1
+            time.sleep(1)
+            continue
+        except json.decoder.JSONDecodeError as e:
+            print('Caught json.decoder.JSONDecodeError: {}: trying again...'.format(e))
+            attempts += 1
+            time.sleep(1)
+            continue
+    print('tweet_marketcaps attempts: {}'.format(attempts))
+
 class SpaceStocksTwitterBot():
 
     def __init__(self, api_keys_filename=None):
@@ -67,6 +87,7 @@ class SpaceStocksTwitterBot():
         self.market_open_hour = 9
         self.market_open_minute = 45
         self.market_close_hour = 16 # 4PM EST
+        self.ONE_BILLION = 1000000000
         self.symbols = [
             ['RKLB', 'ASTR', 'SPCE', 'MNTS', 'NGCA', 'AJRD', 'BA', 'LMT', 'NOC', 'TWNT'],
             ['RDW', 'BKSY', 'MAXR', 'DMYQ', 'GD', 'PKE', 'RTX', 'ATRO', 'KTOS', 'MYNA'],
@@ -143,6 +164,42 @@ class SpaceStocksTwitterBot():
             current_tweet = ''
         return thread_tweets
 
+    def create_marketcap_tweets(self, marketcap_strs, dt):
+        thread_tweets = []
+        current_tweet = '{}/{} MARKET CAP UPDATE\n\n'.format(dt.month, dt.day)
+        all_symbols = list(marketcap_strs.keys())
+        symbols_obj = [all_symbols[:len(all_symbols)//2], all_symbols[len(all_symbols)//2:]]
+        for symbol_list in symbols_obj:
+            for symbol in symbol_list:
+                cap_str = marketcap_strs[symbol]
+                line = '${} ${}\n'.format(symbol, cap_str)
+                current_tweet = current_tweet + line
+            thread_tweets.append(current_tweet[:-1])
+            current_tweet = ''
+        return thread_tweets
+
+    def get_marketcaps(self, instruments, quotes):
+        result = {}
+        for symbol in instruments.keys():
+            quote = quotes[symbol]
+            fundamentals = instruments[symbol]['fundamental']
+            if fundamentals['marketCap'] == 0.0:
+                result[symbol] = fundamentals['sharesOutstanding'] * quote['regularMarketLastPrice']
+            else:
+                result[symbol] = fundamentals['marketCap'] * 1000000
+        return sorted(result.items(), key=lambda x: x[1], reverse=True)
+
+    def convert_marketcaps_to_str(self, marketcaps):
+        result = dict()
+        for item in marketcaps:
+            symbol = item[0]
+            cap = item[1]
+            if cap < self.ONE_BILLION:
+                result[symbol] = '{}M'.format(round(cap / 1000000, 2))
+            else:
+                result[symbol] = '{}B'.format(round(cap / 1000000000, 2))
+        return result
+
     def send_tweet_thread(self, tweets):
         top_level_tweet = tweets[0]
         replies = tweets[1:]
@@ -182,6 +239,11 @@ class SpaceStocksTwitterBot():
     def get_quotes(self):
         symbols = self.get_symbols()
         return self.tda_client.get_quotes(symbols).json()
+
+    def get_instruments(self):
+        projection = self.tda_client.Instrument.Projection.FUNDAMENTAL
+        instruments = self.tda_client.search_instruments(self.get_symbols(), projection)
+        return instruments.json()
 
     def already_tweeted_open(self):
         persistence_file = self.load_persistence_file()
@@ -250,6 +312,15 @@ class SpaceStocksTwitterBot():
             top_level_tweet_id = self.send_tweet_thread(tweets)
             self.logger.info("Sent market-close tweet with id '{}'".format(top_level_tweet_id))
 
+    def tweet_marketcaps(self):
+        est_time = self.get_est_time()
+        quotes = self.get_quotes()
+        instruments = self.get_instruments()
+        marketcaps = self.get_marketcaps(instruments, quotes)
+        marketcap_strs = self.convert_marketcaps_to_str(marketcaps)
+        tweets = self.create_marketcap_tweets(marketcap_strs, est_time)
+        top_level_tweet_id = self.send_tweet_thread(tweets)
+        self.logger.info("Sent marketcap tweet with id '{}'".format(top_level_tweet_id))
 
     def run(self):
         self.logger.info('SpaceStocksTwitterBot.run() called')
@@ -280,6 +351,8 @@ if __name__ == '__main__':
             tweet_market_open()
         elif mode == 'close':
             tweet_market_close()
+        elif mode == 'marketcaps':
+            tweet_marketcaps()
         else:
             print("'{}' is an unknown argument".format(mode))
     else:
