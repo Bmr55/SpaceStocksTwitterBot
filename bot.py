@@ -90,7 +90,7 @@ class SpaceStocksTwitterBot():
         self.ONE_BILLION = 1000000000
         self.symbols = [
             ['RKLB', 'ASTR', 'SPCE', 'MNTS', 'NGCA', 'AJRD', 'BA', 'LMT', 'NOC', 'TWNT'],
-            ['RDW', 'BKSY', 'MAXR', 'DMYQ', 'GD', 'PKE', 'RTX', 'ATRO', 'KTOS', 'MYNA'],
+            ['RDW', 'BKSY', 'MAXR', 'PL', 'GD', 'PKE', 'RTX', 'ATRO', 'KTOS', 'MYNA'],
             ['ASTS', 'CFV', 'SPIR', 'DISH', 'IRDM', 'GSAT', 'OSAT', 'TSAT', 'VSAT']
         ]
 
