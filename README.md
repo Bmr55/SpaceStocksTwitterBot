@@ -1,5 +1,5 @@
-# Space Stocks Twitter Bot v0.9
-A twitter bot designed to provide market open, market close, and mover price updates for space sector stocks. 
+# Space Stocks Twitter Bot v1.0
+A twitter bot designed to provide market open, market close, and market cap updates for space sector stocks. 
 
 [Live Twitter Bot](https://twitter.com/SpaceStocksUS)
 
@@ -16,15 +16,10 @@ pip3 install -r requirements.txt
 python3 bot.py
 ```
 
-## Run bot's main run loop via crontab
-```console
-@reboot /path/to/dir/venv/bin/python3 /path/to/dir/bot.py main &
-```
-
 ## Run bot in parts via crontab
 ```console
 CRON_TZ=America/New_York
-45 9 * * 1-5 TZ=America/New_York /path/to/dir/venv/bin/python3 /path/to/dir/bot.py open
+30 9 * * 1-5 TZ=America/New_York /path/to/dir/venv/bin/python3 /path/to/dir/bot.py open
 0 16 * * 1-5 TZ=America/New_York /path/to/dir/venv/bin/python3 /path/to/dir/bot.py close
 0 20 * * 5 TZ=America/New_York /path/to/dir/venv/bin/python3 /path/to/dir/bot.py marketcaps
 ```
