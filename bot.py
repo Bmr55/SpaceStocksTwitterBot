@@ -10,7 +10,7 @@ import tweepy_utils
 SYMBOLS = [
     ['RKLB', 'ASTR', 'SPCE', 'MNTS', 'NGCA', 'AJRD', 'BA', 'LMT', 'NOC', 'TWNT'],
     ['RDW', 'BKSY', 'MAXR', 'PL', 'GD', 'PKE', 'RTX', 'ATRO', 'KTOS', 'MYNA'],
-    ['ASTS', 'CFV', 'SPIR', 'DISH', 'IRDM', 'GSAT', 'OSAT', 'TSAT', 'VSAT']]
+    ['ASTS', 'CFV', 'SPIR', 'DISH', 'IRDM', 'GSAT', 'OSAT', 'TSAT', 'VSAT', 'PTOC']]
 SCRIPTPATH = os.path.abspath(os.path.dirname(__file__))
 LOGFILE = 'bot.log'
 LOGGER = bot_utils.setup_logging(SCRIPTPATH, LOGFILE)
