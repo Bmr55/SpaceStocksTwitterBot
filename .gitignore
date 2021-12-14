@@ -133,6 +133,3 @@ test.py
 # keys and token files
 api_keys.json
 tda_token.json
-
-# basic persistence
-persistence.json
