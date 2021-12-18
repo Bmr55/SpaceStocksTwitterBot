@@ -45,7 +45,7 @@ def tweet_marketcaps():
     twitter_api = tweepy_utils.get_twitter_api(CREDENTIALS)
     tda_client = tda_api.get_client(CREDENTIALS['tda_api_key'], SCRIPTPATH)
     symbols = bot_utils.get_symbols_as_list(SYMBOLS)
-    quotes = tda_api.get_quotes(tda_client, SYMBOLS)
+    quotes = tda_api.get_quotes(tda_client, symbols)
     instruments = tda_api.get_instruments(tda_client, symbols)
     marketcaps = bot_utils.get_marketcaps(instruments, quotes)
     marketcap_strs = bot_utils.convert_marketcaps_to_str(marketcaps)
